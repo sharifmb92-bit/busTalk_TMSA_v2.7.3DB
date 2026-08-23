@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>BusTalk_v 2.7.3</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- FIREBASE (SDK Web Limpio) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <!-- MANIFEST PWA E ICONOS -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-152.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+
+    <style>
+        [x-cloak] { display: none !important; }
+        
+        /* 1. MODO NOCTURNO */
+        body.modo-noche { 
+            background-color: #1a1a1a; 
+            color: #ffffff;
+        }
+        body.modo-noche .bg-main { background-color: #121212; }
+        body.modo-noche .bg-card { background-color: #1f2937; border-color: #374151; }
+        body.modo-noche .bg-panel { background-color: #000000; border-color: #1f2937; }
+        body.modo-noche .text-primary { color: #ffffff !important; }
+        body.modo-noche .text-sub { color: #facc15 !important; font-weight: 800; }
+        body.modo-noche .text-cuenta { color: #60a5fa !important; }
+        body.modo-noche .btn-sec { background-color: #1f2937; border-color: #374151; color: #ffffff !important; }
+
+        /* 2. MODO DIURNO GRIS (Ahorro Batería - Gris Claro Mate) */
+        body.modo-dia-gris { 
+            background-color: #e5e7eb; 
+            color: #000000;
+        }
+        body.modo-dia-gris .bg-main { background-color: #e5e7eb; }
+        body.modo-dia-gris .bg-card { background-color: #e5e7eb; border: 2px solid #9ca3af; }
+        body.modo-dia-gris .bg-panel { background-color: #d1d5db; border: 2px solid #9ca3af; }
+        body.modo-dia-gris .text-primary { color: #000000 !important; font-weight: 900; }
+        body.modo-dia-gris .text-sub { color: #374151 !important; font-weight: 800; }
+        body.modo-dia-gris .text-cuenta { color: #2563eb !important; }
+        body.modo-dia-gris .btn-sec { background-color: #e5e7eb; border: 2px solid #9ca3af; color: #000000 !important; font-weight: 900; }
+
+        /* 3. MODO DIURNO CREMA (Ahorro Batería - Beige Mate) */
+        body.modo-dia-crema { 
+            background-color: #f4efea; 
+            color: #2b1810;
+        }
+        body.modo-dia-crema .bg-main { background-color: #f4efea; }
+        body.modo-dia-crema .bg-card { background-color: #f4efea; border: 2px solid #d97724; }
+        body.modo-dia-crema .bg-panel { background-color: #e8dfd8; border: 2px solid #d97724; }
+        body.modo-dia-crema .text-primary { color: #2b1810 !important; font-weight: 900; }
+        body.modo-dia-crema .text-sub { color: #7a6b63 !important; font-weight: 800; }
+        body.modo-dia-crema .text-cuenta { color: #2563eb !important; }
+        body.modo-dia-crema .btn-sec { background-color: #f4efea; border: 2px solid #d97724; color: #2b1810 !important; font-weight: 900; }
+
+        body { 
+            user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+            padding-top: env(safe-area-inset-top);
+        }
+        
+        /* Efectos Botón Radio */
+        .ptt-active { background-color: #ef4444 !important; transform: scale(0.92); box-shadow: 0 0 30px rgba(239, 68, 68, 0.8); animation: pulse-red 1s infinite; }
+        @keyframes pulse-red { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.96); } }
+        
+        .ptt-receiving { background-color: #10b981 !important; box-shadow: 0 0 40px rgba(16, 185, 129, 0.9); animation: pulse-green 1s infinite; }
+        @keyframes pulse-green { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+        /* Luces y Alertas en Tarjetas Completa */
+        .luz-parada { background-color: #10b981; color: black !important; font-weight: 900; border: 2px solid #047857 !important; }
+        .alerta-lleno { background-color: #ea580c !important; animation: pulse-alert 2s infinite; border-color: #c2410c !important; color: white !important; }
+        .alerta-retraso { background-color: #ca8a04 !important; animation: pulse-alert 2s infinite; border-color: #a16207 !important; color: white !important; }
+        .alerta-averia { background-color: #dc2626 !important; animation: pulse-alert 1s infinite; border-color: #991b1b !important; color: white !important; }
+        @keyframes pulse-alert { 0%, 100% { opacity: 1; } 50% { opacity: 0.75; } }
+
+        .pax-limite { animation: pulse-pax 0.8s infinite; color: #ef4444 !important; font-weight: 900; }
+        @keyframes pulse-pax { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.6; } }
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body x-data="busTalkApp()" x-init="init()" :class="obtenerClaseModo()" class="font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
+
+    <!-- MOTOR PWA -->
+    <script>
+        // medbasha
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(console.error);
+            });
+        }
+    </script>
+
+    <div x-show="estadoRadio === 'recibiendo'" x-transition.opacity class="fixed inset-0 bg-green-500/20 z-[60] pointer-events-none animate-pulse"></div>
+
+    <!-- PANTALLA DE INICIO -->
+    <div x-show="!sesionIniciada" x-transition.opacity class="fixed inset-0 z-[100] flex flex-col items-center justify-center p-6 backdrop-blur-md bg-black/90">
+        <div class="bg-card p-8 rounded-[2rem] w-full max-w-sm text-center shadow-2xl border">
+            <div class="text-yellow-500 text-6xl mb-6"><i class="fas fa-bus"></i><i class="fas fa-broadcast-tower text-3xl ml-2"></i></div>
+            <h2 class="text-2xl font-black mb-2 uppercase tracking-wider text-primary">BusTalk_v 2.7.3</h2>
+            <p class="mb-6 text-sm text-sub">Selecciona tu Ruta para conectar la radio.</p>
+            
+            <input type="text" x-model="miBusInput" placeholder="Ej: Servicio 53" 
+                   class="w-full p-4 mb-4 rounded-2xl text-center text-xl font-black border-2 outline-none transition-colors bg-panel text-primary border-gray-400 focus:border-yellow-500">
+            
+            <button @click="mostrarModalZonas = true" 
+                    class="w-full p-4 mb-6 rounded-2xl text-center text-lg font-bold border-2 flex items-center justify-between transition-colors bg-panel text-primary border-gray-400 hover:border-yellow-500">
+                <span class="truncate flex-1 text-left" :class="miLineaInput ? 'text-amber-600 font-black' : 'text-sub'" x-text="miLineaInput ? miLineaInput : 'Seleccionar Línea / Zona...'"></span>
+                <i class="fas fa-chevron-down text-amber-600 ml-2"></i>
+            </button>
+
+            <button @click="iniciarTurno()" class="w-full bg-yellow-500 active:bg-yellow-600 text-black font-black text-xl py-5 rounded-2xl transition-transform active:scale-95 shadow-[0_0_20px_rgba(234,179,8,0.3)]">
+                CONECTAR RADIO
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL DESPLEGABLE DE ZONAS Y RUTAS -->
+    <div x-show="mostrarModalZonas" x-cloak x-transition.opacity class="fixed inset-0 bg-black/90 z-[110] flex items-center justify-center p-4">
+        <div class="bg-card rounded-[2rem] p-6 w-full max-w-sm border max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-700">
+                <h3 class="text-xl font-black text-amber-600 uppercase tracking-wider">Selecciona Zona y Ruta</h3>
+                <button @click="mostrarModalZonas = false" class="text-sub hover:text-primary text-2xl">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 overflow-y-auto hide-scrollbar flex-1 pr-1">
+                <div class="bg-panel rounded-xl p-3 border border-gray-400">
+                    <p class="text-base uppercase font-black text-amber-600 mb-3 tracking-wider">Rutas Principales</p>
+                    <div class="space-y-2">
+                        <button @click="seleccionarLineaModal('L01 (Ciu - Maó)')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'L01 (Ciu - Maó)' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Línea 01 (Ciu - Maó)</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'L01 (Ciu - Maó)'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('L01 (Maó - Ciu)')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'L01 (Maó - Ciu)' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Línea 01 (Maó - Ciu)</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'L01 (Maó - Ciu)'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('L14 Exprés (Ciu - Maó)')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'L14 Exprés (Ciu - Maó)' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Línea 14 Exprés (Ciu - Maó)</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'L14 Exprés (Ciu - Maó)'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('L14 Exprés (Maó - Ciu)')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'L14 Exprés (Maó - Ciu)' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Línea 14 Exprés (Maó - Ciu)</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'L14 Exprés (Maó - Ciu)'"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-panel rounded-xl p-3 border border-gray-400">
+                    <button @click="abrirPoniente = !abrirPoniente" class="w-full flex justify-between items-center text-base uppercase font-black text-sky-600 tracking-wider">
+                        <span>🟠 Zona Centro y Poniente</span>
+                        <i class="fas" :class="abrirPoniente ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                    </button>
+                    
+                    <div x-show="abrirPoniente" x-transition class="space-y-2 mt-3 pt-3 border-t border-gray-400">
+                        <button @click="seleccionarLineaModal('Línea Ciu - Galdana')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'Línea Ciu - Galdana' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Ciu - Galdana</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'Línea Ciu - Galdana'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('Línea Maó - Galdana')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'Línea Maó - Galdana' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Maó - Galdana</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'Línea Maó - Galdana'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('Línea Ciu - S. Tomàs')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'Línea Ciu - S. Tomàs' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Ciu - Sant Tomàs</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'Línea Ciu - S. Tomàs'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('Línea Maó - S. Tomàs')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'Línea Maó - S. Tomàs' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Maó - Sant Tomàs</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'Línea Maó - S. Tomàs'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('Línea Maó - Son Bou')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'Línea Maó - Son Bou' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Maó - Son Bou</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'Línea Maó - Son Bou'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('Zona Centro y Poniente')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'Zona Centro y Poniente' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Genérico Centro/Poniente</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'Zona Centro y Poniente'"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-panel rounded-xl p-3 border border-gray-400">
+                    <p class="text-base uppercase font-black text-blue-600 mb-3 tracking-wider">Zona Maó y Levante</p>
+                    <button @click="seleccionarLineaModal('Zona Maó y Levante')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'Zona Maó y Levante' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                        <span>Maó, Castell, Sant Lluís...</span>
+                        <i class="fas fa-check" x-show="miLineaInput === 'Zona Maó y Levante'"></i>
+                    </button>
+                </div>
+
+                <div class="bg-panel rounded-xl p-3 border border-gray-400">
+                    <p class="text-base uppercase font-black text-sub mb-3 tracking-wider">Otras Rutas</p>
+                    <div class="space-y-2">
+                        <button @click="seleccionarLineaModal('Escolar')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'Escolar' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Rutas Escolares</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'Escolar'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('Discrecional')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'Discrecional' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>Discrecional / Otros</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'Discrecional'"></i>
+                        </button>
+                        <button @click="seleccionarLineaModal('General')" class="w-full text-left p-3 rounded-xl text-lg font-bold transition-colors flex justify-between items-center" :class="miLineaInput === 'General' ? 'bg-yellow-500 text-black font-black' : 'bg-card text-primary'">
+                            <span>🌍 Canal General (Todos)</span>
+                            <i class="fas fa-check" x-show="miLineaInput === 'General'"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CABECERA COMPACTA -->
+    <header class="p-2.5 bg-panel flex justify-between items-center border-b z-10 shadow-sm flex-shrink-0">
+        <div class="flex flex-col">
+            <div class="flex items-center space-x-2">
+                <span class="bg-yellow-500 text-black font-black px-2 py-0.5 rounded-md text-sm" x-text="miBus"></span>
+                <h1 class="text-lg font-black tracking-tighter italic text-primary">Bus<span class="text-amber-600">Talk</span></h1>
+            </div>
+            <span class="text-[11px] font-black text-sky-600 mt-0.5 uppercase tracking-widest truncate max-w-[170px]" x-text="miLinea"></span>
+        </div>
+        <div class="flex items-center space-x-2">
+            <span class="text-[9px] font-mono text-sub border px-1.5 py-0.5 rounded tracking-[0.2em] font-bold">medbasha</span>
+            
+            <button @click="rotarModoColor()" class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-lg border shadow-sm transition-transform active:scale-90" 
+                    :class="modoColor === 'noche' ? 'bg-gray-800 text-yellow-400 border-gray-600' : (modoColor === 'gris' ? 'bg-gray-200 text-gray-900 border-gray-400' : 'bg-amber-100 text-amber-800 border-amber-500')">
+                <i class="fas" :class="modoColor === 'noche' ? 'fa-moon' : (modoColor === 'gris' ? 'fa-sun' : 'fa-sun-plant-wilt')"></i>
+            </button>
+
+            <div class="flex items-center gap-1 bg-card px-2 py-1 rounded-full border">
+                <span class="w-2.5 h-2.5 rounded-full" :class="conectado ? 'bg-green-500 animate-pulse' : 'bg-red-500'"></span>
+            </div>
+            <button @click="cerrarTurno()" class="w-9 h-9 bg-card rounded-full flex items-center justify-center text-sub active:text-red-500 transition-colors border">
+                <i class="fas fa-power-off text-base"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- RADAR CENTRAL (ESPACIO OPTIMIZADO PARA VER 2 TARJETAS COMPLETAS) -->
+    <main class="flex-1 overflow-y-auto p-2 space-y-2 bg-main hide-scrollbar">
+        <div class="flex justify-between items-end px-1">
+            <p class="text-[11px] font-black uppercase tracking-[0.2em] text-sub">Radar de Zona</p>
+            <p class="text-[11px] font-black text-sub" x-text="compañeros.length + ' activos'"></p>
+        </div>
+        
+        <template x-if="compañeros.length === 0 && sesionIniciada">
+            <div class="text-center py-8 opacity-60">
+                <i class="fas fa-satellite-dish text-5xl mb-2 text-sub"></i>
+                <p class="font-black text-sm uppercase tracking-widest text-sub">Zona despejada</p>
+            </div>
+        </template>
+
+        <template x-for="comp in compañeros" :key="comp.id">
+            <div class="p-3 rounded-2xl border-l-4 flex justify-between items-center shadow-md transition-all bg-card"
+                 :class="[
+                    comp.alerta === 'AVERÍA' ? 'alerta-averia' : 
+                    comp.alerta === 'LLENO' ? 'alerta-lleno' : 
+                    comp.alerta === 'RETRASO' ? 'alerta-retraso' : 
+                    (comp.id === elQueHabla ? 'border-green-500 bg-green-500/20' : (comp.enParada ? 'border-green-500' : 'border-blue-500'))
+                 ]">
+                
+                <div class="flex-1 overflow-hidden pr-1">
+                    <div class="flex items-center gap-2 mb-1">
+                        <p class="font-black text-xl text-primary" x-text="comp.id"></p>
+                        <i x-show="comp.id === elQueHabla" class="fas fa-volume-up text-green-600 animate-pulse text-lg ml-1"></i>
+                        <span x-show="comp.alerta" class="px-2 py-0.5 bg-black/80 text-white rounded text-[10px] font-black uppercase tracking-widest border border-white/20">
+                            <i class="fas fa-exclamation-triangle text-yellow-400 mr-1"></i><span x-text="comp.alerta"></span>
+                        </span>
+                    </div>
+
+                    <!-- Tramo Corto con Flecha y Tiempo Sincronizado -->
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-md flex items-center gap-1 whitespace-nowrap truncate border"
+                              :class="comp.enParada ? 'luz-parada' : 'bg-blue-500/20 text-blue-700 border-blue-500'">
+                            <i class="fas" :class="comp.enParada ? 'fa-parking' : 'fa-route'"></i>
+                            <span x-text="comp.enParada ? comp.ubicacion : formatearTramoCorto(comp.tramo)"></span>
+                        </span>
+                        
+                        <!-- Tiempo parado o cuenta atrás del compañero -->
+                        <template x-if="comp.enParada && comp.inicioParada">
+                            <span class="text-xs font-black whitespace-nowrap text-green-600 animate-pulse">
+                                ⏱️ <span x-text="formatearTiempoSegundos(calcularSegundosDetenidoCompañero(comp.inicioParada))"></span>
+                            </span>
+                        </template>
+
+                        <template x-if="!comp.enParada && comp.eta">
+                            <div class="flex items-center gap-1">
+                                <span class="text-sm font-black whitespace-nowrap text-primary">
+                                    <i class="fas fa-clock mr-0.5"></i><span x-text="calcularMinutos(comp.eta)"></span>m
+                                </span>
+                                <!-- Botón Refrescar Tiempo Congelado -->
+                                <button @click="forzarRefrescoCompañero(comp.id)" class="w-6 h-6 rounded-full bg-blue-600/20 text-blue-600 flex items-center justify-center active:scale-90 transition-transform border border-blue-400">
+                                    <i class="fas fa-sync-alt text-[9px]"></i>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                
+                <div class="text-right bg-panel px-3 py-1.5 rounded-xl border ml-1 flex-shrink-0">
+                    <p class="text-[8px] uppercase tracking-widest text-sub font-black mb-0.5">Pax</p>
+                    <span class="text-2xl font-black" :class="obtenerColorPax(comp.pax)" x-text="comp.pax"></span>
+                </div>
+            </div>
+        </template>
+    </main>
+
+    <!-- PANEL DE CONTROL DEL CONDUCTOR (COMPACTO Y FIJO DEBAJO) -->
+    <footer class="p-3 bg-panel rounded-t-[2rem] shadow-[0_-8px_30px_rgba(0,0,0,0.15)] border-t relative z-20 flex-shrink-0">
+        <div class="flex flex-col items-center max-w-md mx-auto">
+            
+            <!-- ALERTAS -->
+            <div class="w-full flex gap-1.5 mb-2 bg-card p-1.5 rounded-xl border">
+                <button @click="toggleAlerta('LLENO')" class="flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase border active:scale-95 transition-transform" :class="miAlerta === 'LLENO' ? 'bg-orange-600 border-orange-500 text-white' : 'btn-sec'">🔴 Lleno</button>
+                <button @click="toggleAlerta('RETRASO')" class="flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase border active:scale-95 transition-transform" :class="miAlerta === 'RETRASO' ? 'bg-yellow-600 border-yellow-500 text-white' : 'btn-sec'">🟡 Retraso</button>
+                <button @click="toggleAlerta('AVERÍA')" class="flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase border active:scale-95 transition-transform" :class="miAlerta === 'AVERÍA' ? 'bg-red-600 border-red-500 text-white' : 'btn-sec'">🆘 Avería</button>
+            </div>
+
+            <!-- CARRUSEL MANUAL Y BOTÓN INVERSOR -->
+            <div class="w-full mb-2 flex items-center gap-1.5">
+                <button @click="invertirRuta()" class="w-10 h-10 flex-shrink-0 bg-blue-600 text-white rounded-xl shadow-lg font-black text-base active:bg-blue-700 transition-transform active:scale-90">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <div class="flex overflow-x-auto hide-scrollbar gap-1.5 pb-0.5 flex-1">
+                    <template x-for="lugar in misParadasArray" :key="lugar">
+                        <button @click="actualizarUbicacion(lugar)" :data-parada="lugar"
+                                class="flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider border transition-colors" 
+                                :class="miUbicacion === lugar ? 'bg-yellow-500 border-yellow-600 text-black shadow-md font-black' : 'btn-sec active:bg-gray-300'" 
+                                x-text="lugar"></button>
+                    </template>
+                </div>
+            </div>
+
+            <!-- PARADA/RUTA Y PASAJEROS -->
+            <div class="w-full flex gap-2 mb-2.5">
+                <div class="flex-1 bg-card rounded-2xl border p-2 flex flex-col justify-between h-[80px]">
+                    <button @click="toggleParada()" class="w-full py-1.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5"
+                            :class="enParada ? 'luz-parada' : 'btn-sec'">
+                        <i class="fas text-xs" :class="enParada ? 'fa-parking' : 'fa-play'"></i>
+                        <span x-text="enParada ? 'EN PARADA' : 'SALIR / RUTA'"></span>
+                    </button>
+                    
+                    <!-- Modo EN PARADA: Tiempo detenido -->
+                    <div x-show="enParada" class="text-center my-auto">
+                        <span class="text-[9px] font-black uppercase tracking-wider text-sub">Parado: </span>
+                        <span class="text-xs font-black text-green-600 animate-pulse" x-text="formatearTiempoSegundos(segundosEnParadaActual)"></span>
+                    </div>
+
+                    <!-- Modo SALIR / RUTA: Cuenta atrás -->
+                    <div x-show="!enParada" class="flex justify-between items-center my-auto px-0.5">
+                        <button @click="ajustarMinutos(-1)" class="w-7 h-7 bg-panel rounded-lg text-primary font-black text-base active:bg-gray-400 flex items-center justify-center border">-</button>
+                        <div class="text-center px-1">
+                            <span class="text-xl font-black text-cuenta" :class="(!enParada && minutosRestantes < 0) ? 'text-red-600 animate-pulse' : ''" x-text="minutosRestantes"></span>
+                            <span class="text-[10px] font-black text-cuenta" :class="(!enParada && minutosRestantes < 0) ? 'text-red-600' : ''">m</span>
+                        </div>
+                        <button @click="ajustarMinutos(1)" class="w-7 h-7 bg-panel rounded-lg text-primary font-black text-base active:bg-gray-400 flex items-center justify-center border">+</button>
+                    </div>
+                </div>
+
+                <div class="flex-1 bg-card p-2 rounded-2xl border flex items-center justify-between h-[80px]">
+                    <button @mousedown="iniciarPax(-1)" @mouseup="pararPax()" @mouseleave="pararPax()" @touchstart.prevent="iniciarPax(-1)" @touchend.prevent="pararPax()" 
+                            class="w-11 h-11 rounded-xl bg-panel text-2xl flex items-center justify-center active:bg-red-500 transition-colors text-primary border shadow-sm">-</button>
+                    <div class="text-center flex-1">
+                        <p class="text-[8px] uppercase font-black tracking-widest text-sub">PAX</p>
+                        <p class="text-3xl font-black leading-none" :class="obtenerColorPax(miPax)" x-text="miPax"></p>
+                    </div>
+                    <button @mousedown="iniciarPax(1)" @mouseup="pararPax()" @mouseleave="pararPax()" @touchstart.prevent="iniciarPax(1)" @touchend.prevent="pararPax()" 
+                            class="w-11 h-11 rounded-xl bg-panel text-2xl flex items-center justify-center active:bg-green-500 transition-colors text-primary border shadow-sm">+</button>
+                </div>
+            </div>
+
+            <!-- BOTONES DE RADIO (AGRANDADOS Y TEXTO AJUSTADO PERFECTAMENTE) -->
+            <div class="relative flex items-center justify-between w-full px-1">
+                <button @click="modoGlobal = !modoGlobal" class="w-16 h-16 rounded-full border-2 flex flex-col items-center justify-center transition-all shadow-md active:scale-95"
+                        :class="modoGlobal ? 'bg-blue-600 border-blue-400 text-white shadow-[0_0_15px_rgba(37,99,235,0.7)]' : 'bg-card border-gray-400 text-sub'">
+                    <i class="fas fa-globe-europe text-xl mb-0.5"></i>
+                    <span class="text-[8px] font-black uppercase tracking-tight text-center leading-tight px-0.5" x-text="modoGlobal ? 'GLOBAL ON' : 'GLOBAL OFF'"></span>
+                </button>
+                
+                <button id="btn-ptt"
+                    @click="alternarGrabacionToque()"
+                    class="w-28 h-28 rounded-full flex flex-col items-center justify-center shadow-lg transition-all duration-150 relative z-10"
+                    :class="[
+                        estadoRadio === 'grabando' ? 'ptt-active' : (estadoRadio === 'recibiendo' ? 'ptt-receiving' : 'bg-yellow-500'),
+                        modoGlobal && estadoRadio !== 'recibiendo' ? 'border-4 border-blue-500' : ''
+                    ]">
+                    <i class="fas text-3xl mb-1 text-black" :class="estadoRadio === 'recibiendo' ? 'fa-volume-up' : 'fa-microphone'"></i>
+                    <template x-if="estadoRadio === 'reposo'"><span class="text-black font-black text-[10px] tracking-widest" x-text="modoGlobal ? 'AVISO TODOS' : 'TOCAR HABLAR'"></span></template>
+                    <template x-if="estadoRadio === 'grabando'"><span class="text-black font-black text-[10px] tracking-widest">TOCAR ENVIAR</span></template>
+                    <template x-if="estadoRadio === 'recibiendo'">
+                        <div class="flex flex-col items-center leading-none">
+                            <span class="text-black font-black text-xs tracking-widest" x-text="elQueHabla"></span>
+                            <span class="text-black/80 font-black text-[8px] mt-0.5 truncate max-w-[85px]" x-text="lineaQueHabla"></span>
+                        </div>
+                    </template>
+                </button>
+
+                <button @click="repetirUltimoAudio()" class="w-16 h-16 rounded-full border-2 flex flex-col items-center justify-center transition-colors shadow-md active:scale-95"
+                        :class="ultimoAudio ? 'bg-emerald-600 border-emerald-400 text-white active:bg-emerald-700' : 'bg-card border-gray-400 text-sub opacity-50 cursor-not-allowed'">
+                    <i class="fas fa-redo text-lg mb-0.5"></i>
+                    <span class="text-[8px] font-black tracking-widest">REPETIR</span>
+                </button>
+            </div>
+            
+        </div>
+    </footer>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC7b6_T0ze2HgXiYHfvUeL12JSXE7ZKogc",
+            authDomain: "misturnos-fe3ea.firebaseapp.com",
+            databaseURL: "https://misturnos-fe3ea-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "misturnos-fe3ea",
+            storageBucket: "misturnos-fe3ea.firebasestorage.app",
+            messagingSenderId: "1029095925443",
+            appId: "1:1029095925443:web:873240d85ac5160f392476"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        function busTalkApp() {
+            return {
+                sesionIniciada: false, conectado: false, wakeLockStatus: null,
+                miBusInput: '', miLineaInput: '', 
+                miBus: '', miLinea: '', miPax: 0, miUbicacion: '',
+                enParada: true, minutosRuta: 15, minutosRestantes: 15, etaFinal: null, miAlerta: null,
+                miTramoActual: '', miSentidoActual: 'levante',
+                segundosEnParadaActual: 0, inicioParadaTimestamp: Date.now(),
+                compañeros:[], misParadasArray:[],
+                mostrarModalZonas: false, abrirPoniente: false, 
+                modoColor: 'noche',
+                
+                estadoRadio: 'reposo', elQueHabla: null, lineaQueHabla: '',
+                mediaRecorder: null, chunks:[], streamingMsgId: null, ultimoAudio: null,
+                relojUI: null, modoGlobal: false, intervaloPax: null, watchdogRadio: null,
+                unsubBuses: null, unsubRadio: null, intervalRelojRuta: null,
+                streamActivo: null,
+
+                init() {
+                    const busGuardado = localStorage.getItem('bustalk_bus');
+                    const lineaGuardada = localStorage.getItem('bustalk_linea');
+                    const modoGuardado = localStorage.getItem('bustalk_modo_color_v2');
+                    
+                    if (busGuardado) this.miBusInput = busGuardado;
+                    if (lineaGuardada) this.miLineaInput = lineaGuardada;
+                    if (modoGuardado) this.modoColor = modoGuardado;
+                    
+                    this.relojUI = setInterval(() => { this.compañeros = [...this.compañeros]; }, 1000);
+                    
+                    this.intervalRelojRuta = setInterval(() => {
+                        if (!this.enParada && this.etaFinal) {
+                            let antes = this.minutosRestantes;
+                            this.minutosRestantes = Math.ceil((this.etaFinal - Date.now()) / 60000);
+                            
+                            if (antes > 0 && this.minutosRestantes <= 0) {
+                                this.playAudioAviso('llegada');
+                            }
+                        }
+                    }, 1000);
+
+                    setInterval(() => {
+                        if (this.enParada && this.sesionIniciada) {
+                            this.segundosEnParadaActual = Math.floor((Date.now() - this.inicioParadaTimestamp) / 1000);
+                        }
+                    }, 1000);
+                },
+
+                rotarModoColor() {
+                    if (this.modoColor === 'noche') this.modoColor = 'gris';
+                    else if (this.modoColor === 'gris') this.modoColor = 'crema';
+                    else this.modoColor = 'noche';
+                    
+                    localStorage.setItem('bustalk_modo_color_v2', this.modoColor);
+                },
+
+                obtenerClaseModo() {
+                    if (this.modoColor === 'gris') return 'modo-dia-gris';
+                    if (this.modoColor === 'crema') return 'modo-dia-crema';
+                    return 'modo-noche';
+                },
+
+                obtenerColorPax(cantidad) {
+                    if (cantidad >= 75) return 'pax-limite';
+                    if (cantidad >= 50) return 'text-red-600 font-black';
+                    return 'text-amber-500 font-black';
+                },
+
+                formatearTramoCorto(tramo) {
+                    if (!tramo) return '';
+                    return tramo.replace(/^De\s+/i, '').replace(/\s+a\s+/i, ' ➔ ');
+                },
+
+                seleccionarLineaModal(linea) {
+                    this.miLineaInput = linea;
+                    this.mostrarModalZonas = false;
+                },
+
+                cargarParadas() {
+                    const diccionario = {
+                        "L01 (Ciu - Maó)": ["Ciu", "Ferr", "Mer", "Alaior C.", "Alaior P.", "Argen", "Maó"],
+                        "L01 (Maó - Ciu)": ["Maó", "Argen", "Alaior P.", "Alaior C.", "Mer", "Ferr", "Ciu"],
+                        "L14 Exprés (Ciu - Maó)": ["Ciu", "Maó"],
+                        "L14 Exprés (Maó - Ciu)": ["Maó", "Ciu"],
+                        "Línea Ciu - Galdana": ["Ciu", "Ferr", "Galdana"],
+                        "Línea Maó - Galdana": ["Maó", "Argen", "Alaior P.", "Alaior C.", "Mer", "Ferr", "Galdana"],
+                        "Línea Ciu - S. Tomàs": ["Ciu", "Ferr", "Mer", "Migjorn", "S. Tomàs"],
+                        "Línea Maó - S. Tomàs": ["Maó", "Argen", "Alaior P.", "Alaior C.", "Migjorn", "S. Tomàs"],
+                        "Línea Maó - Son Bou": ["Maó", "Argen", "Alaior P.", "Alaior C.", "Son Bou"],
+                        "Zona Maó y Levante": ["Maó", "Castell", "S.Lluís", "P.Prima", "S'Algar", "Canutells", "Mesquida", "C.Porter", "Binisafúller", "Binibèquer", "Alcaufar", "Trebalúger", "Bintaufa", "S.Climent"],
+                        "Zona Centro y Poniente": ["Ciu", "Ferr", "Mer", "Alaior C.", "Migjorn", "S.Tomàs", "Son Bou", "Galdana"]
+                    };
+                    let paradas = diccionario[this.miLinea] || ["Ciu", "Ferr", "Mer", "Alaior C.", "Alaior P.", "Argen", "Maó"];
+                    this.misParadasArray = paradas;
+                    this.miUbicacion = paradas[0];
+                    this.evaluarSentido();
+                },
+
+                evaluarSentido() {
+                    if (this.misParadasArray.length > 0) {
+                        if (this.misParadasArray[0] === 'Ciu') {
+                            this.miSentidoActual = 'levante';
+                        } else if (this.misParadasArray[0] === 'Maó') {
+                            this.miSentidoActual = 'poniente';
+                        } else {
+                            this.miSentidoActual = 'levante';
+                        }
+                    }
+                },
+
+                obtenerTiempoTramo(origen, destino) {
+                    const tiempos = {
+                        "Ciu-Ferr": 20, "Ferr-Mer": 10, "Mer-Alaior C.": 10, "Alaior C.-Alaior P.": 3, "Alaior P.-Argen": 5, "Argen-Maó": 12,
+                        "Maó-Argen": 12, "Argen-Alaior P.": 5, "Alaior P.-Alaior C.": 3, "Alaior C.-Mer": 10, "Mer-Ferr": 10, "Ferr-Ciu": 20,
+                        "Ciu-Maó": 45, "Maó-Ciu": 45,
+                        "Ferr-Galdana": 11, "Galdana-Ferr": 11,
+                        "Mer-Migjorn": 12, "Migjorn-Mer": 12,
+                        "Migjorn-S. Tomàs": 15, "S. Tomàs-Migjorn": 8,
+                        "Alaior C.-Migjorn": 12, "Migjorn-Alaior C.": 12,
+                        "Alaior C.-Son Bou": 20, "Son Bou-Alaior C.": 20
+                    };
+                    return tiempos[`${origen}-${destino}`] || 15;
+                },
+
+                esMismaZona(lineaA, lineaB) {
+                    if (lineaA === 'General' || lineaB === 'General') return true;
+                    
+                    const esL01_A = lineaA.includes('L01');
+                    const esL01_B = lineaB.includes('L01');
+                    if (esL01_A && esL01_B) return true;
+
+                    const esL14_A = lineaA.includes('L14');
+                    const esL14_B = lineaB.includes('L14');
+                    if (esL14_A && esL14_B) return true;
+
+                    if (lineaA === lineaB) return true;
+                    
+                    const poniente = ["Zona Centro y Poniente", "Línea Ciu - Galdana", "Línea Maó - Galdana", "Línea Ciu - S. Tomàs", "Línea Maó - S. Tomàs", "Línea Maó - Son Bou", "L01 (Ciu - Maó)", "L01 (Maó - Ciu)"];
+                    if (poniente.includes(lineaA) && poniente.includes(lineaB)) return true;
+                    
+                    const levante = ["Zona Maó y Levante"];
+                    if (levante.includes(lineaA) && levante.includes(lineaB)) return true;
+                    
+                    return false;
+                },
+
+                invertirRuta() {
+                    this.misParadasArray = this.misParadasArray.slice().reverse();
+                    this.miUbicacion = this.misParadasArray[0];
+                    this.evaluarSentido();
+                    if ("vibrate" in navigator) navigator.vibrate(30);
+                    this.$nextTick(() => {
+                        const el = document.querySelector(`[data-parada="${this.miUbicacion}"]`);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    });
+                    this.actualizarMiEstadoBD();
+                },
+
+                async mantenerPantallaDespierta() {
+                    if ('wakeLock' in navigator) {
+                        try { this.wakeLockStatus = await navigator.wakeLock.request('screen'); } catch (err) {}
+                    }
+                },
+
+                iniciarTurno() {
+                    if (!this.miBusInput || this.miBusInput.trim() === '') { 
+                        alert("Por favor, introduce el número o nombre de tu servicio/línea."); 
+                        return; 
+                    }
+                    if (!this.miLineaInput || this.miLineaInput.trim() === '') { 
+                        alert("Por favor, selecciona una línea o zona."); 
+                        return; 
+                    }
+                    
+                    navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: false, 
+                            autoGainControl: true,
+                            sampleRate: 44100
+                        } 
+                    }).then(stream => {
+                        stream.getTracks().forEach(track => track.stop());
+                        
+                        this.miBus = this.miBusInput.trim();
+                        this.miLinea = this.miLineaInput;
+                        
+                        this.cargarParadas();
+
+                        localStorage.setItem('bustalk_bus', this.miBus);
+                        localStorage.setItem('bustalk_linea', this.miLinea);
+                        this.sesionIniciada = true;
+
+                        this.mantenerPantallaDespierta();
+                        
+                        document.addEventListener('visibilitychange', () => {
+                            if (document.visibilityState === 'visible') {
+                                this.mantenerPantallaDespierta();
+                                if (this.conectado) this.actualizarMiEstadoBD();
+                            }
+                        });
+
+                        this.playAudioAviso('local');
+
+                        auth.signInAnonymously().then(() => {
+                            this.conectado = true;
+                            this.inicioParadaTimestamp = Date.now();
+                            this.actualizarMiEstadoBD();
+
+                            this.unsubBuses = db.collection("bustalk_buses").onSnapshot(snap => {
+                                const lista = [];
+                                snap.forEach(doc => {
+                                    const data = doc.data();
+                                    if (doc.id !== this.miBus) {
+                                        if (this.esMismaZona(this.miLinea, data.linea)) {
+                                            if (data.timestamp > Date.now() - (2 * 60 * 60 * 1000)) {
+                                                lista.push({ id: doc.id, ...data });
+                                            }
+                                        }
+                                    }
+                                });
+                                this.compañeros = lista.sort((a, b) => b.pax - a.pax);
+                            });
+
+                            this.unsubRadio = db.collection("bustalk_radio").orderBy("timestamp", "desc").limit(20)
+                                .onSnapshot(snap => {
+                                    if (snap.empty) return;
+                                    
+                                    for (let i = 0; i < snap.docs.length; i++) {
+                                        const data = snap.docs[i].data();
+                                        const mLinea = data.linea || '';
+                                        if (this.esMismaZona(this.miLinea, mLinea)) {
+                                            this.ultimoAudio = data.audioBase64;
+                                            break; 
+                                        }
+                                    }
+
+                                    const msg = snap.docs[0].data();
+                                    const msgId = snap.docs[0].id;
+                                    const mLineaRadio = msg.linea || '';
+                                    
+                                    if (msg.bus !== this.miBus && this.streamingMsgId !== msgId) {
+                                        if (this.esMismaZona(this.miLinea, mLineaRadio)) {
+                                            this.streamingMsgId = msgId;
+                                            this.reproducirMensaje(msg.audioBase64, msg.bus, msg.linea);
+                                        }
+                                    }
+                                });
+                        }).catch((error) => { 
+                            this.conectado = false; this.sesionIniciada = false;
+                            alert("❌ Error: " + error.message); 
+                        });
+
+                    }).catch(err => {
+                        alert("⚠️ Permiso Denegado: Debes permitir el acceso al micrófono de tu dispositivo para usar BusTalk en la ruta.");
+                    });
+                },
+
+                cerrarTurno() {
+                    if(confirm("¿Apagar la radio y salir del turno?")) {
+                        if(this.unsubBuses) this.unsubBuses();
+                        if(this.unsubRadio) this.unsubRadio();
+                        db.collection("bustalk_buses").doc(this.miBus).delete();
+                        localStorage.removeItem('bustalk_bus');
+                        localStorage.removeItem('bustalk_linea');
+                        location.reload();
+                    }
+                },
+
+                iniciarPax(valor) {
+                    this.cambiarPasajerosUnico(valor);
+                    this.intervaloPax = setInterval(() => { this.cambiarPasajerosUnico(valor); }, 150);
+                },
+                cambiarPasajerosUnico(valor) {
+                    this.miPax = Math.max(0, this.miPax + valor);
+                    if ("vibrate" in navigator) navigator.vibrate(10);
+                },
+                pararPax() {
+                    if(this.intervaloPax) {
+                        clearInterval(this.intervaloPax);
+                        this.intervaloPax = null;
+                        this.actualizarMiEstadoBD();
+                    }
+                },
+
+                actualizarUbicacion(lugar) {
+                    this.miUbicacion = lugar; this.enParada = true; this.etaFinal = null; this.miTramoActual = '';
+                    this.segundosEnParadaActual = 0;
+                    this.inicioParadaTimestamp = Date.now();
+                    this.actualizarMiEstadoBD();
+                    
+                    this.$nextTick(() => {
+                        const el = document.querySelector(`[data-parada="${this.miUbicacion}"]`);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    });
+                    
+                    if ("vibrate" in navigator) navigator.vibrate(50);
+                },
+
+                toggleParada() {
+                    if (this.enParada) {
+                        this.enParada = false;
+                        
+                        let idx = this.misParadasArray.indexOf(this.miUbicacion);
+                        if (idx !== -1 && idx < this.misParadasArray.length - 1) {
+                            let siguiente = this.misParadasArray[idx + 1];
+                            this.minutosRuta = this.obtenerTiempoTramo(this.miUbicacion, siguiente);
+                            this.miTramoActual = `De ${this.miUbicacion} a ${siguiente}`;
+                        } else {
+                            this.miTramoActual = `En ruta desde ${this.miUbicacion}`;
+                        }
+                        
+                        this.etaFinal = Date.now() + (this.minutosRuta * 60 * 1000);
+                        this.minutosRestantes = this.minutosRuta;
+                        
+                    } else {
+                        this.enParada = true;
+                        this.etaFinal = null;
+                        this.miTramoActual = '';
+                        this.segundosEnParadaActual = 0;
+                        this.inicioParadaTimestamp = Date.now();
+                        
+                        let idx = this.misParadasArray.indexOf(this.miUbicacion);
+                        if (idx !== -1 && idx < this.misParadasArray.length - 1) {
+                            this.miUbicacion = this.misParadasArray[idx + 1];
+                            this.playAudioAviso('salto');
+                            
+                            this.$nextTick(() => {
+                                const el = document.querySelector(`[data-parada="${this.miUbicacion}"]`);
+                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                            });
+                        }
+                    }
+                    
+                    this.actualizarMiEstadoBD();
+                    if ("vibrate" in navigator) navigator.vibrate(50);
+                },
+
+                formatearTiempoSegundos(seg) {
+                    if (!seg || seg < 0) seg = 0;
+                    const m = Math.floor(seg / 60);
+                    const s = seg % 60;
+                    return `${m}m ${s < 10 ? '0' : ''}${s}s`;
+                },
+
+                calcularSegundosDetenidoCompañero(inicioMs) {
+                    if (!inicioMs) return 0;
+                    return Math.max(0, Math.floor((Date.now() - inicioMs) / 1000));
+                },
+
+                forzarRefrescoCompañero(idBus) {
+                    db.collection("bustalk_buses").doc(idBus).get().then(doc => {
+                        if (doc.exists) {
+                            const data = doc.data();
+                            const idx = this.compañeros.findIndex(c => c.id === idBus);
+                            if (idx !== -1) {
+                                this.compañeros[idx] = { id: idBus, ...data };
+                                this.compañeros = [...this.compañeros];
+                            }
+                        }
+                    });
+                    if ("vibrate" in navigator) navigator.vibrate(30);
+                },
+
+                ajustarMinutos(val) {
+                    if (!this.enParada && this.etaFinal) {
+                        this.etaFinal += (val * 60000);
+                        this.minutosRestantes = Math.ceil((this.etaFinal - Date.now()) / 60000);
+                    }
+                    this.actualizarMiEstadoBD();
+                },
+
+                toggleAlerta(tipo) {
+                    if (this.miAlerta === tipo) this.miAlerta = null; 
+                    else this.miAlerta = tipo; 
+                    this.actualizarMiEstadoBD();
+                    if ("vibrate" in navigator) navigator.vibrate(50);
+                },
+
+                actualizarMiEstadoBD() {
+                    if(!this.conectado) return;
+                    db.collection("bustalk_buses").doc(this.miBus).set({
+                        linea: this.miLinea, pax: this.miPax, ubicacion: this.miUbicacion,
+                        enParada: this.enParada, inicioParada: this.enParada ? this.inicioParadaTimestamp : null,
+                        tramo: this.miTramoActual, sentido: this.miSentidoActual, eta: this.etaFinal, alerta: this.miAlerta, timestamp: Date.now()
+                    });
+                },
+
+                calcularMinutos(etaMs) {
+                    if(!etaMs) return 0;
+                    const diff = etaMs - Date.now();
+                    return Math.max(0, Math.ceil(diff / 60000));
+                },
+
+                alternarGrabacionToque() {
+                    if (this.estadoRadio === 'recibiendo') return;
+
+                    if (this.estadoRadio === 'reposo') {
+                        navigator.mediaDevices.getUserMedia({ 
+                            audio: {
+                                echoCancellation: true,
+                                noiseSuppression: false, 
+                                autoGainControl: true,
+                                sampleRate: 44100
+                            } 
+                        }).then(stream => {
+                            this.streamActivo = stream;
+                            this.estadoRadio = 'grabando';
+                            if ("vibrate" in navigator) navigator.vibrate(100); 
+
+                            this.chunks = [];
+                            this.mediaRecorder = new MediaRecorder(stream);
+                            this.mediaRecorder.ondataavailable = e => { this.chunks.push(e.data); };
+
+                            this.mediaRecorder.onstop = async () => {
+                                const audioBlob = new Blob(this.chunks, { type: 'audio/webm' });
+                                const base64Audio = await this.blobToBase64(audioBlob);
+
+                                const canalEnvio = this.modoGlobal ? 'General' : this.miLinea;
+
+                                db.collection("bustalk_radio").add({
+                                    bus: this.miBus, linea: canalEnvio,
+                                    audioBase64: base64Audio, timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                                
+                                if (this.streamActivo) {
+                                    this.streamActivo.getTracks().forEach(track => track.stop());
+                                    this.streamActivo = null;
+                                }
+                                
+                                if (this.modoGlobal) this.modoGlobal = false;
+                            };
+                            this.mediaRecorder.start();
+                        }).catch(err => { alert("Micrófono no disponible."); });
+
+                    } else if (this.estadoRadio === 'grabando') {
+                        if (this.mediaRecorder) {
+                            this.mediaRecorder.stop();
+                            this.estadoRadio = 'reposo';
+                            if ("vibrate" in navigator) navigator.vibrate(50);
+                        }
+                    }
+                },
+
+                reproducirMensaje(base64, busSender, lineaMensaje) {
+                    this.estadoRadio = 'recibiendo'; 
+                    this.elQueHabla = busSender;
+                    this.lineaQueHabla = lineaMensaje === 'General' ? 'GLOBAL / EMERGENCIA' : lineaMensaje;
+                    
+                    if ("vibrate" in navigator) navigator.vibrate([100, 100, 100]); 
+                    
+                    clearTimeout(this.watchdogRadio);
+                    this.watchdogRadio = setTimeout(() => { this.resetRadio(); }, 10000);
+
+                    const tipoSonido = lineaMensaje === 'General' ? 'global' : 'local';
+                    this.playAudioAviso(tipoSonido);
+                    
+                    const esperaVoz = lineaMensaje === 'General' ? 1400 : 500;
+
+                    setTimeout(() => {
+                        const audio = new Audio(base64);
+                        audio.play().catch(e => { console.log("Bloqueado"); this.resetRadio(); });
+                        
+                        audio.onended = () => { this.resetRadio(); };
+                        audio.onerror = () => { this.resetRadio(); };
+                    }, esperaVoz); 
+                },
+
+                repetirUltimoAudio() {
+                    if (!this.ultimoAudio || this.estadoRadio !== 'reposo') return;
+                    this.estadoRadio = 'recibiendo';
+                    const audio = new Audio(this.ultimoAudio);
+                    audio.play().catch(e => { console.log("Bloqueado"); this.resetRadio(); });
+                    audio.onended = () => { this.resetRadio(); };
+                },
+
+                resetRadio() {
+                    this.estadoRadio = 'reposo'; this.elQueHabla = null; this.lineaQueHabla = '';
+                    clearTimeout(this.watchdogRadio);
+                },
+
+                blobToBase64(blob) {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader(); reader.readAsDataURL(blob);
+                        reader.onloadend = () => resolve(reader.result); reader.onerror = reject;
+                    });
+                },
+
+                playAudioAviso(tipo) {
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+                        osc.connect(gain); gain.connect(ctx.destination);
+                        
+                        if(tipo === 'local') {
+                            osc.type = 'triangle'; 
+                            osc.frequency.setValueAtTime(1000, ctx.currentTime);
+                            gain.gain.setValueAtTime(1.0, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                            osc.start(); osc.stop(ctx.currentTime + 0.3);
+                        } else if (tipo === 'global') {
+                            osc.type = 'triangle'; 
+                            osc.frequency.setValueAtTime(800, ctx.currentTime); 
+                            osc.frequency.setValueAtTime(600, ctx.currentTime + 0.6); 
+                            
+                            gain.gain.setValueAtTime(0, ctx.currentTime);
+                            gain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.1); 
+                            gain.gain.exponentialRampToValueAtTime(0.1, ctx.currentTime + 0.5); 
+                            
+                            gain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + 0.6); 
+                            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.2); 
+
+                            osc.start(); osc.stop(ctx.currentTime + 1.2);
+                        } else if (tipo === 'salto') {
+                            osc.type = 'sine'; 
+                            osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                            gain.gain.setValueAtTime(0.5, ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                            osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.1);
+                            
+                            const osc2 = ctx.createOscillator(); const gain2 = ctx.createGain();
+                            osc2.connect(gain2); gain2.connect(ctx.destination);
+                            osc2.type = 'sine';
+                            osc2.frequency.setValueAtTime(1500, ctx.currentTime + 0.15);
+                            gain2.gain.setValueAtTime(0.5, ctx.currentTime + 0.15);
+                            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+                            osc2.start(ctx.currentTime + 0.15); osc2.stop(ctx.currentTime + 0.25);
+                        } else if (tipo === 'llegada') {
+                            for (let i = 0; i < 2; i++) {
+                                const o = ctx.createOscillator(); const g = ctx.createGain();
+                                o.connect(g); g.connect(ctx.destination);
+                                o.type = 'square';
+                                o.frequency.setValueAtTime(800, ctx.currentTime + (i * 0.4));
+                                g.gain.setValueAtTime(1.0, ctx.currentTime + (i * 0.4));
+                                g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (i * 0.4) + 0.2);
+                                o.start(ctx.currentTime + (i * 0.4)); 
+                                o.stop(ctx.currentTime + (i * 0.4) + 0.2);
+                            }
+                        }
+                    } catch (e) { }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
